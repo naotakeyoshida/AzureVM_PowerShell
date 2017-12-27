@@ -1,0 +1,78 @@
+$resourceGroup = "DemoResourceGroupWinVM"
+$location = "EastUS"
+$vmName = "DemoWinVM"
+$vmSize = "Standard_D1"
+New-AzureRmResourceGroup `
+    -ResourceGroupName $resourceGroup `
+    -Location $location
+$subnetConfig = New-AzureRmVirtualNetworkSubnetConfig `
+    -Name DemoSubnet `
+    -AddressPrefix 192.168.1.0/24
+$vnet = New-AzureRmVirtualNetwork `
+    -ResourceGroupName $resourceGroup `
+    -Location $location `
+    -Name DemoVnet `
+    -AddressPrefix 192.168.0.0/16 `
+    -Subnet $subnetConfig
+$pip = New-AzureRmPublicIpAddress `
+    -ResourceGroupName $resourceGroup `
+    -Location $location `
+    -AllocationMethod Static `
+    -Name DemoPublicIPAddress
+$nic = New-AzureRmNetworkInterface `
+    -ResourceGroupName $resourceGroup  `
+    -Location $location `
+    -Name DemoNic `
+    -SubnetId $vnet.Subnets[0].Id `
+    -PublicIpAddressId $pip.Id
+$nsgRule = New-AzureRmNetworkSecurityRuleConfig `
+    -Name DemoNSGRule `
+    -Protocol Tcp `
+    -Direction Inbound `
+    -Priority 1000 `
+    -SourceAddressPrefix * `
+    -SourcePortRange * `
+    -DestinationAddressPrefix * `
+    -DestinationPortRange 3389 `
+    -Access Allow
+$nsg = New-AzureRmNetworkSecurityGroup `
+    -ResourceGroupName $resourceGroup `
+    -Location $location `
+    -Name DemoNetworkSecurityGroup `
+    -SecurityRules $nsgRule
+Set-AzureRmVirtualNetworkSubnetConfig `
+    -Name DemoSubnet `
+    -VirtualNetwork $vnet `
+    -NetworkSecurityGroup $nsg `
+    -AddressPrefix 192.168.1.0/24
+Set-AzureRmVirtualNetwork `
+    -VirtualNetwork $vnet
+$cred = Get-Credential
+$vm = New-AzureRmVMConfig `
+    -VMName $vmName `
+    -VMSize $vmSize
+$vm = Set-AzureRmVMOperatingSystem `
+    -VM $vm `
+    -Windows `
+    -ComputerName $vmName `
+    -Credential $cred `
+    -ProvisionVMAgent -EnableAutoUpdate
+$vm = Set-AzureRmVMSourceImage `
+    -VM $vm `
+    -PublisherName MicrosoftWindowsServer `
+    -Offer WindowsServer `
+    -Skus 2016-Datacenter `
+    -Version latest
+$vm = Set-AzureRmVMOSDisk `
+    -VM $vm `
+    -Name DemoOsDisk `
+    -DiskSizeInGB 128 `
+    -CreateOption FromImage `
+    -Caching ReadWrite
+$vm = Add-AzureRmVMNetworkInterface `
+    -VM $vm -Id $nic.Id
+New-AzureRmVM `
+    -ResourceGroupName $resourceGroup `
+    -Location $location -VM $vm
+Get-AzureRmPublicIpAddress `
+    -ResourceGroupName $resourceGroup  | Select IpAddress
