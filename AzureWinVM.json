@@ -1,4 +1,4 @@
-$resourceGroup = "DemoResourceGroupWinVM"
+$resourceGroup = "DemoRG_WinVM"
 $location = "EastUS"
 $vmName = "DemoWinVM"
 $vmSize = "Standard_D1"
